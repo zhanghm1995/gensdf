@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 
 import numpy as np
 import math
+from tqdm import tqdm
 
 import os 
 from pathlib import Path
@@ -220,7 +221,7 @@ class GenSDF(base_pl.Model):
 
         print("performing refinement on input point cloud...")
         #print("shapes: ", full_pc.shape, xyz_full.shape)
-        for e in range(num_iterations):
+        for e in tqdm(range(num_iterations)):
             samp_idx = torch.randperm(xyz_full.shape[1])[0:5000]
             xyz = xyz_full[ :,samp_idx ].cuda()
             gt_pt = gt_pt_full[ :,samp_idx ].cuda()

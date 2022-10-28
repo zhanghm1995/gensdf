@@ -40,7 +40,7 @@ def check_neg(csvpath):
 def run_sdf_gen(root_dir, class_name):
     class_dir = os.path.join(root_dir, class_name) # root_dir = acronym; class_name, Plant, Spoon..etc
 
-    meshes = os.listdir(class_dir) # in Plant, Spoon, there are multiple .obj files
+    meshes = sorted(os.listdir(class_dir)) # in Plant, Spoon, there are multiple .obj files
     meshes = [i for i in meshes if i.endswith(".obj")]
 
     #split_file = "meshes.csv"
@@ -50,6 +50,13 @@ def run_sdf_gen(root_dir, class_name):
     for mesh in meshes:
         # create folders of the mesh name and move obj, sdf_gt files into the folder 
         mesh_folder = os.path.join(class_dir, mesh.split(".")[0])
+        csv_file_path = os.path.join(mesh_folder, "sdf_data.csv")
+        print("==============", csv_file_path)
+
+        if os.path.exists(csv_file_path):
+            print(f"{csv_file_path} exists...............")
+            continue
+
         mesh_folders.append(mesh_folder)
         os.makedirs(mesh_folder, exist_ok=True)
         shutil.move(os.path.join(class_dir, mesh), os.path.join(mesh_folder, "model.obj"))
@@ -76,6 +83,7 @@ arg_parser.add_argument('--class_name', '-c', nargs="+")
 
 args = arg_parser.parse_args()
 
+
 if args.class_name == ["all"]:
     classes = os.listdir(args.root_dir)
     if ".DS_Store" in classes:
@@ -85,7 +93,7 @@ if args.class_name == ["all"]:
     # for c in classes:
     #     print("processing {}".format(c))
     #     run_sdf_gen(args.root_dir, c)
-    for idx in range(start_idx, len(classes)):
+    for idx in range(0, len(classes)):
         print("processing {}".format(classes[idx]))
         run_sdf_gen(args.root_dir, classes[idx])
 

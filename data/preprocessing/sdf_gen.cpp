@@ -7,7 +7,8 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <filesystem>
+#include <experimental/filesystem>
+// #include <filesystem>
 
 void recenter_mesh(
   Eigen::MatrixXd & V,
@@ -108,8 +109,8 @@ int main(int argc, char * argv[])
 
   std::cout << "Saving results...\n";
   std::string save_data_dir = argv[2];
-  if(!std::__fs::filesystem::is_directory(save_data_dir))
-    std::__fs::filesystem::create_directory(save_data_dir);
+  // if(!std::__fs::filesystem::is_directory(save_data_dir))
+  //   std::__fs::filesystem::create_directory(save_data_dir);
   std::string sdf_file = save_data_dir + "/sdf_data.csv";
   write_matrix_to_csv(sdf_file, SDFData);
 
