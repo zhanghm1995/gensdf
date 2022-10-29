@@ -46,6 +46,7 @@ class PUDS(torch.utils.data.Dataset):
         self.num_iters = int(samples_per_mesh / samples_per_batch)
 
         self.unlab_files = self.get_instance_filenames(data_source, split_file)
+        self.unlab_files = self.unlab_files[6370:]
 
         if load_files:
             print("Loading from saved data...")
@@ -53,7 +54,6 @@ class PUDS(torch.utils.data.Dataset):
             self.point_clouds = prep_data["point_cloud"]
             self.sdf_xyz = prep_data["sdf_xyz"]
             self.gt_pc = prep_data["gt_pc"]
-
         else:
             self.sdf_xyz      = torch.empty(size=(len(self.unlab_files), samples_per_mesh, 3))
             self.query_projection = torch.empty(size=(len(self.unlab_files), samples_per_mesh, 3))
@@ -73,9 +73,8 @@ class PUDS(torch.utils.data.Dataset):
                             },
                             "{}/prep_pu_data.pt".format(save_dir))
             
-
         l = self.sdf_xyz.shape[0]
-        self.sdf_xyz = self.sdf_xyz.reshape(l, -1, self.samples_per_batch, 3)
+        self.sdf_xyz = self.sdf_xyz.reshape(l, -1, self.samples_per_mesh, 3) # TODO: use self.samples_per_batch originally
         self.gt_pc = self.gt_pc.reshape(l, -1, 20000, 3)
 
         # # point clouds should just be repeated 
@@ -97,6 +96,7 @@ class PUDS(torch.utils.data.Dataset):
             for i, f in enumerate(pbar):
                 pbar.set_description("Files processed: {}/{}: {}".format(i, len(self.unlab_files), f))
                 gt_pc = torch.from_numpy(np.loadtxt(f).astype(np.float32)) # (20000, 3)
+                gt_pc = self.normalize_pointcloud(gt_pc)
 
                 pc = self.sample_pointcloud(gt_pc) # (5000, 3)
                 query_points = self.sample_query(pc) # (100000, 3)
@@ -107,6 +107,12 @@ class PUDS(torch.utils.data.Dataset):
                 self.sdf_xyz[i] = query_points
                 self.query_projection[i] = nearest_neighbors
                 self.gt_pc[i] = gt_pc
+
+    def normalize_pointcloud(self, f):
+        f -= torch.mean(f, dim=0)
+        bbox_length = torch.sqrt(torch.sum((torch.max(f, axis=0)[0] - torch.min(f, axis=0)[0])**2))
+        f /= bbox_length
+        return f
 
     def sample_pointcloud(self, f):
         pc_idx = torch.randperm(f.shape[0])[0:self.pc_size]
@@ -129,13 +135,13 @@ class PUDS(torch.utils.data.Dataset):
 
     # find the 50th nearest neighbor for each point in pc 
     # this will be the std for the gaussian for generating query 
-    def sample_query(self, pc): 
+    def sample_query(self, pc):
 
         dists = torch.cdist(pc, pc)
 
-        std, _ = torch.topk(dists, 50, dim=-1, largest=False) # shape: 1024, 50
+        std, _ = torch.topk(dists, 50, dim=-1, largest=False)
 
-        std = std[:,-1].unsqueeze(-1) # new shape is 1024, 1
+        std = std[:,-1].unsqueeze(-1)
 
         query_points = torch.empty(size=(pc.shape[0]*self.query_per_point, 3))
         count = 0
