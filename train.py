@@ -16,6 +16,7 @@ from model import *
 def main():
     
     train_dataset = init_dataset(specs["TrainData"], specs)
+    exit(0)
 
     # unsupervised methods require sampler; e.g. NeuralPull
     if specs["TrainData"] == "unlabeled":
@@ -123,6 +124,16 @@ def init_model(model, specs, num_objects, dataloaders):
 
 def init_dataset(dataset, specs):
 
+    if dataset == "genpu":
+        from dataloader.pu_ds import PUDS
+        train_split_file = specs["TrainSplit"]
+        with open(train_split_file, "r") as f:
+            train_split = json.load(f)
+        return PUDS(
+            specs["DataSource"], train_split, 
+            samples_per_mesh=specs["SampPerMesh"], pc_size=specs["PCsize"],
+            samples_per_batch=specs["SampPerBatch"])
+        
     # GenSDF semi-supervised stage, load two dataloaders for labeled and unlabeled datasets
     if dataset == "semi":
         from dataloader.labeled_ds import LabeledDS

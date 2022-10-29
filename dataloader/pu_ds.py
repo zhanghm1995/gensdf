@@ -16,13 +16,12 @@ import os
 import random
 import torch
 import torch.utils.data
-from . import base 
 
 import pandas as pd 
 import csv
 
 
-class PUDS(base.Dataset): 
+class PUDS(torch.utils.data.Dataset): 
 
     def __init__(
         self,
@@ -53,13 +52,13 @@ class PUDS(base.Dataset):
             prep_data = torch.load("{}/prep_data.pt".format(save_dir))
             self.point_clouds = prep_data["point_cloud"]
             self.sdf_xyz = prep_data["sdf_xyz"]
-            self.gt_pt = prep_data["gt_pt"]
+            self.gt_pc = prep_data["gt_pc"]
 
         else:
             self.sdf_xyz      = torch.empty(size=(len(self.unlab_files), samples_per_mesh, 3))
             self.query_projection = torch.empty(size=(len(self.unlab_files), samples_per_mesh, 3))
             self.point_clouds = torch.empty(size=(len(self.unlab_files), pc_size, 3))
-            self.gt_pc        = torch.empty(size=(len(self.unlab_files), samples_per_mesh, 3))
+            self.gt_pc        = torch.empty(size=(len(self.unlab_files), 20000, 3))
 
             self.preprocess_data()
 
@@ -69,14 +68,15 @@ class PUDS(base.Dataset):
                 torch.save( {
                             "point_cloud":self.point_clouds,
                             "sdf_xyz":self.sdf_xyz,
-                            "gt_pt":self.gt_pt,
+                            "gt_pc":self.gt_pc,
+                            "query_projection":self.query_projection,
                             },
-                            "{}/prep_data.pt".format(save_dir))
+                            "{}/prep_pu_data.pt".format(save_dir))
             
 
         l = self.sdf_xyz.shape[0]
         self.sdf_xyz = self.sdf_xyz.reshape(l, -1, self.samples_per_batch, 3)
-        self.gt_pc = self.gt_pc.reshape(l, -1, self.samples_per_batch, 3)
+        self.gt_pc = self.gt_pc.reshape(l, -1, 20000, 3)
 
         # # point clouds should just be repeated 
         self.point_clouds = self.point_clouds.unsqueeze(1).repeat(1, self.gt_pc.shape[1], 1, 1)
@@ -96,7 +96,7 @@ class PUDS(base.Dataset):
         with tqdm(self.unlab_files) as pbar:
             for i, f in enumerate(pbar):
                 pbar.set_description("Files processed: {}/{}".format(i, len(self.unlab_files)))
-                gt_pc = np.loadtxt(f).astype(np.float32) # (20000, 3)
+                gt_pc = torch.from_numpy(np.loadtxt(f).astype(np.float32)) # (20000, 3)
 
                 pc = self.sample_pointcloud(gt_pc) # (5000, 3)
                 query_points = self.sample_query(pc) # (100000, 3)
@@ -106,16 +106,26 @@ class PUDS(base.Dataset):
                 self.point_clouds[i] = pc # input sparse point cloud
                 self.sdf_xyz[i] = query_points
                 self.query_projection[i] = nearest_neighbors
-                self.gt_pc[i] = torch.from_numpy(gt_pc)
-
+                self.gt_pc[i] = gt_pc
 
     def sample_pointcloud(self, f):
-        f = f[f[:,-1]==0][:,:3]
-        f = torch.from_numpy(f)
         pc_idx = torch.randperm(f.shape[0])[0:self.pc_size]
 
         return f[pc_idx].float()
 
+    def get_instance_filenames(self, data_source, split, gt_filename="gt_pc.xyz"):
+        xyzfiles = []
+        for dataset in split: # e.g. "acronym" "shapenet"
+            for class_name in split[dataset]:
+                for instance_name in split[dataset][class_name]:
+                    instance_filename = os.path.join(data_source, dataset, class_name, instance_name, gt_filename)
+                    
+                    if not os.path.isfile(instance_filename):
+                        logging.warning("Requested non-existent file '{}'".format(instance_filename))
+                        continue
+
+                    xyzfiles.append(instance_filename)
+        return xyzfiles
 
     # find the 50th nearest neighbor for each point in pc 
     # this will be the std for the gaussian for generating query 
