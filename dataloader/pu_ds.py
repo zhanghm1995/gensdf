@@ -95,7 +95,7 @@ class PUDS(torch.utils.data.Dataset):
     def preprocess_data(self):
         with tqdm(self.unlab_files) as pbar:
             for i, f in enumerate(pbar):
-                pbar.set_description("Files processed: {}/{}".format(i, len(self.unlab_files)))
+                pbar.set_description("Files processed: {}/{}: {}".format(i, len(self.unlab_files), f))
                 gt_pc = torch.from_numpy(np.loadtxt(f).astype(np.float32)) # (20000, 3)
 
                 pc = self.sample_pointcloud(gt_pc) # (5000, 3)
