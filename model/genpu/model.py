@@ -92,10 +92,12 @@ class GenPU(base_pl.Model):
         lab_decoder_input = torch.cat([lab_shape_vecs, query_points], dim=-1)
         query_offsets = self.decoder(lab_decoder_input)
         
-        # offset regulization
+        # offset regulization loss
         offset_reg_loss = self.alpha * nn.L1Loss()(query_offsets, torch.zeros_like(query_offsets))
         pred_pts = query_points + query_offsets
-        chamfer_dist_loss = 100.0 * self.chamfer_dist_loss(pred_pts, gt_pc)
+
+        chamfer_dist_loss, final_pred_pts = self.chamfer_dist_loss(pred_pts, gt_pc)
+        chamfer_dist_loss *= 100.0
 
         loss_dict =  {
                         "offset_reg_loss": offset_reg_loss,
@@ -109,10 +111,16 @@ class GenPU(base_pl.Model):
             save_dir = osp.join(self.logger.log_dir, "vis", f"epoch_{self.current_epoch:04d}")
             os.makedirs(save_dir, exist_ok=True)
 
+            sparse_pc_arr = sparse_pc.detach().cpu().numpy()
             pred_pts_arr = pred_pts.detach().cpu().numpy() # (B, N, 3)
             gt_pc_arr = gt_pc.detach().cpu().numpy()
+            query_point_arr = query_points.detach().cpu().numpy()
+            final_pred_pts_arr = final_pred_pts.detach().cpu().numpy()
             for i in range(pred_pts_arr.shape[0]):
+                np.savetxt(osp.join(save_dir, f"{i:02d}_input.xyz"), sparse_pc_arr[i])
+                np.savetxt(osp.join(save_dir, f"{i:02d}_query.xyz"), query_point_arr[i])
                 np.savetxt(osp.join(save_dir, f"{i:02d}_pred.xyz"), pred_pts_arr[i])
+                np.savetxt(osp.join(save_dir, f"{i:02d}_final_pred.xyz"), final_pred_pts_arr[i])
                 np.savetxt(osp.join(save_dir, f"{i:02d}_gt.xyz"), gt_pc_arr[i])
 
         return loss
@@ -122,7 +130,7 @@ class GenPU(base_pl.Model):
         if pred_pt.shape[1] > gt_pc.shape[1]:
             pred_pt, _ = sample_farthest_points(pred_pt, K=gt_pc.shape[1])
         loss, _ = chamfer_distance(pred_pt, gt_pc, norm=2)
-        return loss
+        return loss, pred_pt
 
     def train_dataloader(self):
         if len(self.dataloaders)==1:
