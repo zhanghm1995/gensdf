@@ -18,6 +18,7 @@ import math
 from tqdm import tqdm
 
 import os 
+import os.path as osp
 from pathlib import Path
 import time 
 
@@ -92,17 +93,29 @@ class GenPU(base_pl.Model):
         query_offsets = self.decoder(lab_decoder_input)
         
         # offset regulization
-        offset_reg_loss = nn.L1Loss()(query_offsets, torch.zeros_like(query_offsets))
+        offset_reg_loss = self.alpha * nn.L1Loss()(query_offsets, torch.zeros_like(query_offsets))
         pred_pts = query_points + query_offsets
-        chamfer_dist_loss = self.chamfer_dist_loss(pred_pts, gt_pc)
+        chamfer_dist_loss = 100.0 * self.chamfer_dist_loss(pred_pts, gt_pc)
 
         loss_dict =  {
                         "offset_reg_loss": offset_reg_loss,
                         "chamfer_dist_loss": chamfer_dist_loss,
                     }
         self.log_dict(loss_dict, prog_bar=True, enable_graph=False)
+        loss = chamfer_dist_loss + offset_reg_loss
         
-        return chamfer_dist_loss + self.alpha * offset_reg_loss
+        ## add visualization
+        if batch_idx % 500 == 0:
+            save_dir = osp.join(self.logger.log_dir, "vis", f"epoch_{self.current_epoch:04d}")
+            os.makedirs(save_dir, exist_ok=True)
+
+            pred_pts_arr = pred_pts.detach().cpu().numpy() # (B, N, 3)
+            gt_pc_arr = gt_pc.detach().cpu().numpy()
+            for i in range(pred_pts_arr.shape[0]):
+                np.savetxt(osp.join(save_dir, f"{i:02d}_pred.xyz"), pred_pts_arr[i])
+                np.savetxt(osp.join(save_dir, f"{i:02d}_gt.xyz"), gt_pc_arr[i])
+
+        return loss
 
     def chamfer_dist_loss(self, pred_pt, gt_pc):
 
