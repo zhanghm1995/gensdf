@@ -12,7 +12,7 @@ import numpy as np
 class DeepSdfArch(nn.Module):
     def __init__(self, latent_size=256, hidden_dim=512, weight_norm=False, 
                  skip_connection=True, dropout_prob=0.0, tanh_act=False,
-                 geo_init=True, input_size=None
+                 geo_init=True, input_size=None, out_dim=1
                  ):
         super().__init__()
         self.latent_size = latent_size
@@ -79,7 +79,7 @@ class DeepSdfArch(nn.Module):
             )
 
 
-        self.block3 = nn.Linear(hidden_dim, 1)
+        self.block3 = nn.Linear(hidden_dim, out_dim)
 
         if geo_init:
             for m in self.block3.modules():

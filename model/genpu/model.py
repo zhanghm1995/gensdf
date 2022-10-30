@@ -64,7 +64,7 @@ class GenPU(base_pl.Model):
                                         unet=(self.unet_kwargs is not None), unet_kwargs=self.unet_kwargs)
         
         self.decoder = DeepSdfArch(self.latent_size, self.decoder_hidden_dim, geo_init=self.geo_init, 
-                                  skip_connection=self.skip_connection)#, input_size=self.latent_size+self.mapping_size*2)
+                                   skip_connection=self.skip_connection, out_dim=3)
 
 
     def configure_optimizers(self):
@@ -83,9 +83,8 @@ class GenPU(base_pl.Model):
         query_points = x['sdf_xyz']
         gt_pc = x['gt_pc']
 
-        #print("context xyz, pc shape: ", context_xyz.shape, context_pc.shape)
-        #print("query xyz, pc shape: ",query_xyz.shape, query_pc.shape)
-        print(sparse_pc.dtype, query_points.dtype, gt_pc.dtype)
+        # print(sparse_pc.dtype, query_points.dtype, gt_pc.dtype)
+        # print(sparse_pc.shape, query_points.shape, gt_pc.shape)
 
         lab_shape_vecs = self.encoder(sparse_pc, query_points)
         #lab_enc_xyz = self.ff_enc(context_xyz, self.avals.to(self.device), self.bvals.to(self.device))
@@ -94,7 +93,6 @@ class GenPU(base_pl.Model):
         
         # offset regulization
         offset_reg_loss = nn.L1Loss()(query_offsets, torch.zeros_like(query_offsets))
-
         pred_pts = query_points + query_offsets
         chamfer_dist_loss = self.chamfer_dist_loss(pred_pts, gt_pc)
 
@@ -109,12 +107,10 @@ class GenPU(base_pl.Model):
     def chamfer_dist_loss(self, pred_pt, gt_pc):
 
         if pred_pt.shape[1] > gt_pc.shape[1]:
-            pred_pt = sample_farthest_points(pred_pt, K=gt_pc.shape[1])
-
-        loss = chamfer_distance(pred_pt, gt_pc, norm=2)
+            pred_pt, _ = sample_farthest_points(pred_pt, K=gt_pc.shape[1])
+        loss, _ = chamfer_distance(pred_pt, gt_pc, norm=2)
         return loss
 
-    # two dataloaders for semi-supervised stage; only one for meta-learning stage
     def train_dataloader(self):
         if len(self.dataloaders)==1:
             return self.dataloaders[0]
