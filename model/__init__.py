@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from model.gensdf.model import GenSDF
+from model.genpu.model import GenPU
 
 from model.deepsdf.model import DeepSDF
 from model.conv_occ.model import ConvOccNet

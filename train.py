@@ -16,7 +16,6 @@ from model import *
 def main():
     
     train_dataset = init_dataset(specs["TrainData"], specs)
-    exit(0)
 
     # unsupervised methods require sampler; e.g. NeuralPull
     if specs["TrainData"] == "unlabeled":
@@ -28,6 +27,17 @@ def main():
             num_workers= 8 if args.workers is None else args.workers,
             drop_last=True,
             sampler=sampler
+        )   
+        dataloaders = [train_dataloader]
+    
+    elif specs["TrainData"] == "genpu":
+        from dataloader.unlabeled_ds import Sampler
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            num_workers= 8 if args.workers is None else args.workers,
+            drop_last=True,
+            shuffle=True
         )   
         dataloaders = [train_dataloader]
 
@@ -103,7 +113,7 @@ def main():
     callbacks.append(callback)
 
     
-    trainer = pl.Trainer(accelerator='gpu', devices=1, precision=16, max_epochs=max_epochs, 
+    trainer = pl.Trainer(accelerator='gpu', devices=1, precision=32, max_epochs=max_epochs, 
                         callbacks=callbacks)
     trainer.fit(model=model, ckpt_path=resume) 
 
@@ -112,6 +122,8 @@ def main():
 def init_model(model, specs, num_objects, dataloaders):
     if model == "GenSDF":
         return GenSDF(specs, dataloaders)
+    elif model == "GenPU":
+        return GenPU(specs, dataloaders)
     elif model == "DeepSDF":
         return DeepSDF(specs, num_objects)
     elif model == "NeuralPull":

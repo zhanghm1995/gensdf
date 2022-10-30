@@ -85,6 +85,7 @@ class GenPU(base_pl.Model):
 
         #print("context xyz, pc shape: ", context_xyz.shape, context_pc.shape)
         #print("query xyz, pc shape: ",query_xyz.shape, query_pc.shape)
+        print(sparse_pc.dtype, query_points.dtype, gt_pc.dtype)
 
         lab_shape_vecs = self.encoder(sparse_pc, query_points)
         #lab_enc_xyz = self.ff_enc(context_xyz, self.avals.to(self.device), self.bvals.to(self.device))
@@ -103,7 +104,7 @@ class GenPU(base_pl.Model):
                     }
         self.log_dict(loss_dict, prog_bar=True, enable_graph=False)
         
-        return chamfer_dist_loss*self.alpha + offset_reg_loss
+        return chamfer_dist_loss + self.alpha * offset_reg_loss
 
     def chamfer_dist_loss(self, pred_pt, gt_pc):
 
