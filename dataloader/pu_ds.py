@@ -34,7 +34,7 @@ class PUDS(torch.utils.data.Dataset):
 
         samples_per_mesh=100000, # 5000*20 from pc
 
-        load_files=False,
+        load_files=True,
         save_files=False,
         save_dir = "preprocessed"
     ):
@@ -46,11 +46,10 @@ class PUDS(torch.utils.data.Dataset):
         self.num_iters = int(samples_per_mesh / samples_per_batch)
 
         self.unlab_files = self.get_instance_filenames(data_source, split_file)
-        self.unlab_files = self.unlab_files[6370:]
 
         if load_files:
             print("Loading from saved data...")
-            prep_data = torch.load("{}/prep_data.pt".format(save_dir))
+            prep_data = torch.load("{}/prep_pu_data.pt".format(save_dir))
             self.point_clouds = prep_data["point_cloud"]
             self.sdf_xyz = prep_data["sdf_xyz"]
             self.gt_pc = prep_data["gt_pc"]
